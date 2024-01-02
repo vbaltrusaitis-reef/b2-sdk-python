@@ -12,3 +12,6 @@ dist
 venv
 .venv
 .vscode
+.pdm-python
+.pdm-lock
+.pdm-build/
