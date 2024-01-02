@@ -16,11 +16,16 @@ import subprocess
 
 import nox
 
+os.environ["PDM_IGNORE_SAVED_PYTHON"] = '1'
 CI = os.environ.get('CI') is not None
 NOX_PYTHONS = os.environ.get('NOX_PYTHONS')
 SKIP_COVERAGE = os.environ.get('SKIP_COVERAGE') == 'true'
 
 PYTHON_VERSIONS = [
+    'pypy3.9',
+    'pypy3.9-nightly',
+    'pypy3.10',
+    'pypy3.11',
     '3.7',
     '3.8',
     '3.9',
@@ -33,43 +38,17 @@ PYTHON_DEFAULT_VERSION = PYTHON_VERSIONS[-1]
 
 PY_PATHS = ['b2sdk', 'test', 'noxfile.py', 'setup.py']
 
-REQUIREMENTS_FORMAT = ['yapf==0.27', 'ruff==0.0.270']
-REQUIREMENTS_LINT = REQUIREMENTS_FORMAT + ['pytest==6.2.5', 'liccheck==0.6.2']
-REQUIREMENTS_RELEASE = ['towncrier==23.11.0']
-REQUIREMENTS_TEST = [
-    "pytest==6.2.5",
-    "pytest-cov==3.0.0",
-    "pytest-mock==3.6.1",
-    'pytest-lazy-fixture==0.6.3',
-    'pytest-xdist==2.5.0',
-    'pytest-timeout==2.1.0',
-]
-REQUIREMENTS_BUILD = ['setuptools>=20.2', 'wheel>=0.40']
-
 nox.options.reuse_existing_virtualenvs = True
 nox.options.sessions = [
     'lint',
     'test',
 ]
 
-# In CI, use Python interpreter provided by GitHub Actions
-if CI:
-    nox.options.force_venv_backend = 'none'
-
-
-def install_myself(session, extras=None):
-    """Install from the source."""
-    arg = '.'
-    if extras:
-        arg += '[%s]' % ','.join(extras)
-
-    session.run('pip', 'install', '-e', arg)
-
 
 @nox.session(name='format', python=PYTHON_DEFAULT_VERSION)
-def format_(session):
+def format_(session: nox.Session):
     """Lint the code and apply fixes in-place whenever possible."""
-    session.run('pip', 'install', *REQUIREMENTS_FORMAT)
+    session.run('pdm', 'install', '--dev', '--group', 'format')
     # TODO: incremental mode for yapf
     session.run('yapf', '--in-place', '--parallel', '--recursive', *PY_PATHS)
     session.run('ruff', 'check', '--fix', *PY_PATHS)
@@ -84,10 +63,9 @@ def format_(session):
 
 
 @nox.session(python=PYTHON_DEFAULT_VERSION)
-def lint(session):
+def lint(session: nox.Session):
     """Run linters in readonly mode."""
-    install_myself(session)
-    session.run('pip', 'install', *REQUIREMENTS_LINT)
+    session.run('pdm', 'install', '--dev', '--group', 'lint')
     session.run('yapf', '--diff', '--parallel', '--recursive', *PY_PATHS)
     session.run('ruff', 'check', *PY_PATHS)
     # session.run(
@@ -104,10 +82,9 @@ def lint(session):
 
 
 @nox.session(python=PYTHON_VERSIONS)
-def unit(session):
+def unit(session: nox.Session):
     """Run unit tests."""
-    install_myself(session)
-    session.run('pip', 'install', *REQUIREMENTS_TEST)
+    session.run('pdm', 'install', '--dev', '--group', 'test')
     args = ['--doctest-modules', '-n', 'auto']
     if not SKIP_COVERAGE:
         args += ['--cov=b2sdk', '--cov-branch', '--cov-report=xml']
@@ -124,23 +101,21 @@ def unit(session):
 
 
 @nox.session(python=PYTHON_VERSIONS)
-def integration(session):
+def integration(session: nox.Session):
     """Run integration tests."""
-    install_myself(session)
-    session.run('pip', 'install', *REQUIREMENTS_TEST)
+    session.run('pdm', 'install', '--dev', '--group', 'test')
     session.run('pytest', '-s', *session.posargs, 'test/integration')
 
 
 @nox.session(python=PYTHON_DEFAULT_VERSION)
-def cleanup_old_buckets(session):
+def cleanup_old_buckets(session: nox.Session):
     """Remove buckets from previous test runs."""
-    install_myself(session)
-    session.run('pip', 'install', *REQUIREMENTS_TEST)
+    session.run('pdm', 'install', '--dev', '--group', 'test')
     session.run('python', '-m', 'test.integration.cleanup_buckets')
 
 
 @nox.session(python=PYTHON_VERSIONS)
-def test(session):
+def test(session: nox.Session):
     """Run all tests."""
     if session.python:
         session.notify(f'unit-{session.python}')
@@ -151,17 +126,17 @@ def test(session):
 
 
 @nox.session
-def cover(session):
+def cover(session: nox.Session):
     """Perform coverage analysis."""
-    session.run('pip', 'install', 'coverage')
+    session.run('pdm', 'install', '--dev', '--group', 'coverage')
     session.run('coverage', 'report', '--fail-under=75', '--show-missing', '--skip-covered')
     session.run('coverage', 'erase')
 
 
 @nox.session(python=PYTHON_DEFAULT_VERSION)
-def build(session):
+def build(session: nox.Session):
     """Build the distribution."""
-    session.run('pip', 'install', *REQUIREMENTS_BUILD)
+    session.run('pdm', 'install', '--dev', '--group', 'build')
     session.run('python', 'setup.py', 'check', '--metadata', '--strict')
     session.run('rm', '-rf', 'build', 'dist', 'b2sdk.egg-info', external=True)
     session.run('python', 'setup.py', 'sdist', *session.posargs)
@@ -179,9 +154,9 @@ def build(session):
 
 
 @nox.session(python=PYTHON_DEFAULT_VERSION)
-def doc(session):
+def doc(session: nox.Session):
     """Build the documentation."""
-    install_myself(session, extras=['doc'])
+    session.run('pdm', 'install', '--dev', '--group', 'doc')
     session.cd('doc')
     sphinx_args = ['-b', 'html', '-T', '-W', 'source', 'build/html']
     session.run('rm', '-rf', 'build', external=True)
@@ -197,9 +172,9 @@ def doc(session):
 
 
 @nox.session
-def doc_cover(session):
+def doc_cover(session: nox.Session):
     """Perform coverage analysis for the documentation."""
-    install_myself(session, extras=['doc'])
+    session.run('pdm', 'install', '--dev', '--group', 'doc')
     session.cd('doc')
     sphinx_args = ['-b', 'coverage', '-T', '-W', 'source', 'build/coverage']
     report_file = 'build/coverage/python.txt'
@@ -213,7 +188,7 @@ def doc_cover(session):
 
 
 @nox.session(python=PYTHON_DEFAULT_VERSION)
-def make_release_commit(session):
+def make_release_commit(session: nox.Session):
     """
     Runs `towncrier build`, commits changes, tags, all that is left to do is pushing
     """
@@ -236,7 +211,7 @@ def make_release_commit(session):
     if current_branch != 'master':
         session.log('WARNING: releasing from a branch different than master')
 
-    session.run('pip', 'install', *REQUIREMENTS_RELEASE)
+    session.run('pdm', 'install', '--dev', '--group', 'release')
     session.run('towncrier', 'build', '--yes', '--version', version)
 
     session.log(
@@ -315,7 +290,7 @@ def is_changelog_entry_valid(file_content: str) -> tuple[bool, str]:
 
 
 @nox.session(python=PYTHON_DEFAULT_VERSION)
-def towncrier_check(session):
+def towncrier_check(session: nox.Session):
     """
     Check whether all the entries in the changelog.d follow the expected naming convention
     as well as some basic rules as to their format.
