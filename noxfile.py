@@ -38,6 +38,18 @@ PYTHON_DEFAULT_VERSION = PYTHON_VERSIONS[-1]
 
 PY_PATHS = ['b2sdk', 'test', 'noxfile.py']
 
+REQUIREMENTS_FORMAT = ['yapf==0.27', 'ruff==0.0.270']
+REQUIREMENTS_LINT = REQUIREMENTS_FORMAT + ['pytest==6.2.5', 'liccheck==0.6.2']
+REQUIREMENTS_RELEASE = ['towncrier==23.11.0']
+REQUIREMENTS_TEST = [
+    "pytest==6.2.5",
+    "pytest-cov==3.0.0",
+    "pytest-mock==3.6.1",
+    'pytest-lazy-fixture==0.6.3',
+    'pytest-xdist==2.5.0',
+    'pytest-timeout==2.1.0',
+]
+
 nox.options.reuse_existing_virtualenvs = True
 nox.options.sessions = [
     'lint',
@@ -45,10 +57,19 @@ nox.options.sessions = [
 ]
 
 
+def install_myself(session, extras=None):
+    """Install from the source."""
+    arg = '.'
+    if extras:
+        arg += '[%s]' % ','.join(extras)
+
+    session.run('pip', 'install', '-e', arg)
+
+
 @nox.session(name='format', python=PYTHON_DEFAULT_VERSION)
-def format_(session: nox.Session):
+def format_(session):
     """Lint the code and apply fixes in-place whenever possible."""
-    session.run('pdm', 'install', '--dev', '--group', 'format')
+    session.run('pip', 'install', *REQUIREMENTS_FORMAT)
     # TODO: incremental mode for yapf
     session.run('yapf', '--in-place', '--parallel', '--recursive', *PY_PATHS)
     session.run('ruff', 'check', '--fix', *PY_PATHS)
@@ -63,9 +84,10 @@ def format_(session: nox.Session):
 
 
 @nox.session(python=PYTHON_DEFAULT_VERSION)
-def lint(session: nox.Session):
+def lint(session):
     """Run linters in readonly mode."""
-    session.run('pdm', 'install', '--dev', '--group', 'lint')
+    install_myself(session)
+    session.run('pip', 'install', *REQUIREMENTS_LINT)
     session.run('yapf', '--diff', '--parallel', '--recursive', *PY_PATHS)
     session.run('ruff', 'check', *PY_PATHS)
     # session.run(
@@ -82,9 +104,10 @@ def lint(session: nox.Session):
 
 
 @nox.session(python=PYTHON_VERSIONS)
-def unit(session: nox.Session):
+def unit(session):
     """Run unit tests."""
-    session.run('pdm', 'install', '--dev', '--group', 'test')
+    install_myself(session)
+    session.run('pip', 'install', *REQUIREMENTS_TEST)
     args = ['--doctest-modules', '-n', 'auto']
     if not SKIP_COVERAGE:
         args += ['--cov=b2sdk', '--cov-branch', '--cov-report=xml']
@@ -101,21 +124,23 @@ def unit(session: nox.Session):
 
 
 @nox.session(python=PYTHON_VERSIONS)
-def integration(session: nox.Session):
+def integration(session):
     """Run integration tests."""
-    session.run('pdm', 'install', '--dev', '--group', 'test')
+    install_myself(session)
+    session.run('pip', 'install', *REQUIREMENTS_TEST)
     session.run('pytest', '-s', *session.posargs, 'test/integration')
 
 
 @nox.session(python=PYTHON_DEFAULT_VERSION)
-def cleanup_old_buckets(session: nox.Session):
+def cleanup_old_buckets(session):
     """Remove buckets from previous test runs."""
-    session.run('pdm', 'install', '--dev', '--group', 'test')
+    install_myself(session)
+    session.run('pip', 'install', *REQUIREMENTS_TEST)
     session.run('python', '-m', 'test.integration.cleanup_buckets')
 
 
 @nox.session(python=PYTHON_VERSIONS)
-def test(session: nox.Session):
+def test(session):
     """Run all tests."""
     if session.python:
         session.notify(f'unit-{session.python}')
@@ -126,22 +151,17 @@ def test(session: nox.Session):
 
 
 @nox.session
-def cover(session: nox.Session):
+def cover(session):
     """Perform coverage analysis."""
-    session.run('pdm', 'install', '--dev', '--group', 'coverage')
-    session.run('coverage', 'report', '--fail-under=75', '--show-missing',
-                '--skip-covered')
+    session.run('pip', 'install', 'coverage')
+    session.run('coverage', 'report', '--fail-under=75', '--show-missing', '--skip-covered')
     session.run('coverage', 'erase')
 
 
 @nox.session(python=PYTHON_DEFAULT_VERSION)
-def build(session: nox.Session):
+def build(session):
     """Build the distribution."""
-    session.run('pdm', 'install', '--dev', '--group', 'build')
-    session.run('python', 'setup.py', 'check', '--metadata', '--strict')
-    session.run('rm', '-rf', 'build', 'dist', 'b2sdk.egg-info', external=True)
-    session.run('python', 'setup.py', 'sdist', *session.posargs)
-    session.run('python', 'setup.py', 'bdist_wheel', *session.posargs)
+    session.run('pdm', 'build')
 
     # Set outputs for GitHub Actions
     if CI:
@@ -155,9 +175,9 @@ def build(session: nox.Session):
 
 
 @nox.session(python=PYTHON_DEFAULT_VERSION)
-def doc(session: nox.Session):
+def doc(session):
     """Build the documentation."""
-    session.run('pdm', 'install', '--dev', '--group', 'doc')
+    install_myself(session, extras=['doc'])
     session.cd('doc')
     sphinx_args = ['-b', 'html', '-T', '-W', 'source', 'build/html']
     session.run('rm', '-rf', 'build', external=True)
@@ -167,16 +187,15 @@ def doc(session: nox.Session):
         session.notify('doc_cover')
     else:
         sphinx_args[-2:-2] = [
-            '-E', '--open-browser', '--watch', '../b2sdk', '--ignore', '*.pyc',
-            '--ignore', '*~'
+            '-E', '--open-browser', '--watch', '../b2sdk', '--ignore', '*.pyc', '--ignore', '*~'
         ]
         session.run('sphinx-autobuild', *sphinx_args)
 
 
 @nox.session
-def doc_cover(session: nox.Session):
+def doc_cover(session):
     """Perform coverage analysis for the documentation."""
-    session.run('pdm', 'install', '--dev', '--group', 'doc')
+    install_myself(session, extras=['doc'])
     session.cd('doc')
     sphinx_args = ['-b', 'coverage', '-T', '-W', 'source', 'build/coverage']
     report_file = 'build/coverage/python.txt'
@@ -190,54 +209,52 @@ def doc_cover(session: nox.Session):
 
 
 @nox.session(python=PYTHON_DEFAULT_VERSION)
-def make_release_commit(session: nox.Session):
+def make_release_commit(session):
     """
     Runs `towncrier build`, commits changes, tags, all that is left to do is pushing
     """
     if session.posargs:
         version = session.posargs[0]
     else:
-        session.error(
-            'Provide -- {release_version} (X.Y.Z - without leading "v")')
+        session.error('Provide -- {release_version} (X.Y.Z - without leading "v")')
 
     if not re.match(r'^\d+\.\d+\.\d+$', version):
         session.error(
             f'Provided version="{version}". Version must be of the form X.Y.Z where '
-            f'X, Y and Z are integers')
+            f'X, Y and Z are integers'
+        )
 
     local_changes = subprocess.check_output(['git', 'diff', '--stat'])
     if local_changes:
         session.error('Uncommitted changes detected')
 
-    current_branch = subprocess.check_output(
-        ['git', 'rev-parse', '--abbrev-ref', 'HEAD']).decode()
+    current_branch = subprocess.check_output(['git', 'rev-parse', '--abbrev-ref', 'HEAD']).decode()
     if current_branch != 'master':
         session.log('WARNING: releasing from a branch different than master')
 
-    session.run('pdm', 'install', '--dev', '--group', 'release')
+    session.run('pip', 'install', *REQUIREMENTS_RELEASE)
     session.run('towncrier', 'build', '--yes', '--version', version)
 
-    session.log(f'CHANGELOG updated, changes ready to commit and push\n'
-                f'    git commit -m "release {version}"\n'
-                f'    git tag v{version}\n'
-                f'    git push {{UPSTREAM_NAME}} v{version}\n'
-                f'    git push {{UPSTREAM_NAME}} {current_branch}')
+    session.log(
+        f'CHANGELOG updated, changes ready to commit and push\n'
+        f'    git commit -m "release {version}"\n'
+        f'    git tag v{version}\n'
+        f'    git push {{UPSTREAM_NAME}} v{version}\n'
+        f'    git push {{UPSTREAM_NAME}} {current_branch}'
+    )
 
 
-def load_allowed_change_types(
-        project_toml: pathlib.Path = pathlib.Path('./pyproject.toml')
-) -> set[str]:
+def load_allowed_change_types(project_toml: pathlib.Path = pathlib.Path('./pyproject.toml')
+                             ) -> set[str]:
     """
     Load the list of allowed change types from the pyproject.toml file.
     """
     import tomllib
     configuration = tomllib.loads(project_toml.read_text())
-    return set(entry['directory']
-               for entry in configuration['tool']['towncrier']['type'])
+    return set(entry['directory'] for entry in configuration['tool']['towncrier']['type'])
 
 
-def is_changelog_filename_valid(filename: str, allowed_change_types: set[str]
-                                ) -> tuple[bool, str]:
+def is_changelog_filename_valid(filename: str, allowed_change_types: set[str]) -> tuple[bool, str]:
     """
     Validates whether the given filename matches our rules.
     Provides information about why it doesn't match them.
@@ -266,11 +283,9 @@ def is_changelog_filename_valid(filename: str, allowed_change_types: set[str]
         int(description)
     except ValueError:
         if description[0] != '+':
-            error_reasons.append(
-                "Doesn't start with a number nor a plus sign.")
+            error_reasons.append("Doesn't start with a number nor a plus sign.")
 
-    return len(error_reasons) == 0, ' / '.join(
-        error_reasons) if error_reasons else ''
+    return len(error_reasons) == 0, ' / '.join(error_reasons) if error_reasons else ''
 
 
 def is_changelog_entry_valid(file_content: str) -> tuple[bool, str]:
@@ -290,15 +305,13 @@ def is_changelog_entry_valid(file_content: str) -> tuple[bool, str]:
 
     # Check if the last character is a full-stop character.
     if file_content.strip()[-1] != '.':
-        error_reasons.append(
-            'The last character is not a full-stop character.')
+        error_reasons.append('The last character is not a full-stop character.')
 
-    return len(error_reasons) == 0, ' / '.join(
-        error_reasons) if error_reasons else ''
+    return len(error_reasons) == 0, ' / '.join(error_reasons) if error_reasons else ''
 
 
 @nox.session(python=PYTHON_DEFAULT_VERSION)
-def towncrier_check(session: nox.Session):
+def towncrier_check(session):
     """
     Check whether all the entries in the changelog.d follow the expected naming convention
     as well as some basic rules as to their format.
@@ -314,12 +327,9 @@ def towncrier_check(session: nox.Session):
             continue
 
         # Check whether the file matches the expected pattern.
-        is_valid, error_message = is_changelog_filename_valid(
-            filename.name, allowed_change_types)
+        is_valid, error_message = is_changelog_filename_valid(filename.name, allowed_change_types)
         if not is_valid:
-            session.log(
-                f"File {filename.name} doesn't match the expected pattern: {error_message}"
-            )
+            session.log(f"File {filename.name} doesn't match the expected pattern: {error_message}")
             is_error = True
             continue
 
@@ -342,9 +352,7 @@ def towncrier_check(session: nox.Session):
         # Check whether the content of the file is anyhow valid.
         is_valid, error_message = is_changelog_entry_valid(file_content)
         if not is_valid:
-            session.log(
-                f'File {filename.name} is not a valid changelog entry: {error_message}'
-            )
+            session.log(f'File {filename.name} is not a valid changelog entry: {error_message}')
             is_error = True
             continue
 

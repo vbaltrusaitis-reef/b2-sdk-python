@@ -2,7 +2,7 @@ name: Continuous Integration
 
 on:
   push:
-    branches: [use-pdm]
+    branches: [pdm]
   pull_request:
     branches: [master]
 

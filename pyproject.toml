@@ -43,6 +43,17 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
 ]
 
+[project.optional-dependencies]
+doc = [
+    "sadisplay>=0.4.9",
+    "sphinx>=5.3.0, <6",
+    "sphinx-autobuild>=2021.3.14",
+    "sphinx-rtd-theme>=2.0.0",
+    "sphinx-autodoc-typehints>=1.23.0",
+    "sphinxcontrib-plantuml>=0.27",
+    "tornado>=6.3.3",
+]
+
 [build-system]
 requires = ["pdm-backend"]
 build-backend = "pdm.backend"
@@ -111,53 +122,5 @@ showcontent = true
 [tool.pdm]
 package-type = "library"
 
-[tool.pdm.dev-dependencies]
-doc = [
-    "sadisplay>=0.4.9",
-    "sphinx<6.0",
-    "sphinx-autobuild>=2021.3.14",
-    "sphinx-rtd-theme>=2.0.0",
-    "sphinx-autodoc-typehints>=1.23.0",
-    "sphinxcontrib-plantuml>=0.27",
-    "tornado>=6.3.3",
-]
-format = [
-    "yapf==0.40",
-    "ruff==0.0.270",
-]
-lint = [
-    "yapf==0.40",
-    "ruff==0.0.270",
-    "pytest==6.2.5",
-    "liccheck==0.6.2",
-]
-release = [
-    "towncrier==23.11.0",
-]
-test = [
-    "pytest==6.2.5",
-    "pytest-cov==3.0.0",
-    "pytest-mock==3.6.1",
-    "pytest-lazy-fixture==0.6.3",
-    "pytest-xdist==2.5.0",
-    "pytest-timeout==2.1.0",
-]
-build = [
-    "setuptools>=20.2",
-    "wheel>=0.40",
-]
-coverage = [
-    "coverage>=7.4.0",
-]
-nox = [
-    "nox>=2023.4.22",
-]
-
 [tool.pdm.version]
 source = "scm"
-
-[tool.yapf]
-based_on_style = "facebook"
-COLUMN_LIMIT = 100
-SPACE_BETWEEN_ENDING_COMMA_AND_CLOSING_BRACKET = false
-SPLIT_PENALTY_AFTER_OPENING_BRACKET = 0
