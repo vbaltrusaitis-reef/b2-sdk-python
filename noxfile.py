@@ -23,7 +23,6 @@ SKIP_COVERAGE = os.environ.get('SKIP_COVERAGE') == 'true'
 
 PYTHON_VERSIONS = [
     'pypy3.9',
-    'pypy3.9-nightly',
     'pypy3.10',
     '3.7',
     '3.8',
