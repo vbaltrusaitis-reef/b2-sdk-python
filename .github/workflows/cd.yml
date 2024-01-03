@@ -28,11 +28,6 @@ jobs:
       - name: Build the distribution
         id: build
         run: nox -vs build
-      - name: Read the Changelog
-        id: read-changelog
-        uses: mindsers/changelog-reader-action@v2
-        with:
-          version: ${{ steps.build.outputs.version }}
       - name: Create GitHub release and upload the distribution
         id: create-release
         uses: softprops/action-gh-release@v1
