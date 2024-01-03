@@ -39,7 +39,7 @@ PYTHON_DEFAULT_VERSION = PYTHON_VERSIONS[-1]
 PY_PATHS = ['b2sdk', 'test', 'noxfile.py']
 
 REQUIREMENTS_FORMAT = ['yapf==0.27', 'ruff==0.0.270']
-REQUIREMENTS_LINT = REQUIREMENTS_FORMAT + ['pytest==6.2.5', 'liccheck==0.6.2']
+REQUIREMENTS_LINT = REQUIREMENTS_FORMAT + ['pytest==6.2.5', 'liccheck==0.9.2']
 REQUIREMENTS_RELEASE = ['towncrier==23.11.0']
 REQUIREMENTS_TEST = [
     "pytest==6.2.5",
@@ -100,7 +100,7 @@ def lint(session):
     # )
 
     session.run('pytest', 'test/static')
-    session.run('liccheck', '-s', 'setup.cfg')
+    session.run('liccheck', '-s', 'pyproject.toml')
 
 
 @nox.session(python=PYTHON_VERSIONS)
