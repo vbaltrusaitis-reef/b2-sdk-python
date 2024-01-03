@@ -25,7 +25,6 @@ PYTHON_VERSIONS = [
     'pypy3.9',
     'pypy3.9-nightly',
     'pypy3.10',
-    'pypy3.11',
     '3.7',
     '3.8',
     '3.9',
