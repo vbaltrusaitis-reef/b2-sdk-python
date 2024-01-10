@@ -31,7 +31,7 @@ PYTHON_VERSIONS = [
 
 PYTHON_DEFAULT_VERSION = PYTHON_VERSIONS[-1]
 
-PY_PATHS = ['b2sdk', 'test', 'noxfile.py', 'setup.py']
+PY_PATHS = ['b2sdk', 'test', 'noxfile.py']
 
 REQUIREMENTS_FORMAT = ['yapf==0.27', 'ruff==0.0.270']
 REQUIREMENTS_LINT = REQUIREMENTS_FORMAT + ['pytest==6.2.5', 'liccheck==0.6.2']
@@ -44,7 +44,7 @@ REQUIREMENTS_TEST = [
     'pytest-xdist==2.5.0',
     'pytest-timeout==2.1.0',
 ]
-REQUIREMENTS_BUILD = ['setuptools>=20.2', 'wheel>=0.40']
+REQUIREMENTS_BUILD = ['pdm>=2.11.2,<3.0.0']
 
 nox.options.reuse_existing_virtualenvs = True
 nox.options.sessions = [
@@ -162,10 +162,7 @@ def cover(session):
 def build(session):
     """Build the distribution."""
     session.run('pip', 'install', *REQUIREMENTS_BUILD)
-    session.run('python', 'setup.py', 'check', '--metadata', '--strict')
-    session.run('rm', '-rf', 'build', 'dist', 'b2sdk.egg-info', external=True)
-    session.run('python', 'setup.py', 'sdist', *session.posargs)
-    session.run('python', 'setup.py', 'bdist_wheel', *session.posargs)
+    session.run('pdm', 'build')
 
     # Set outputs for GitHub Actions
     if CI:
