@@ -9,6 +9,18 @@ upcoming release can be found in [changelog.d](changelog.d).
 
 <!-- towncrier release notes start -->
 
+## [1.30.0](https://github.com/Backblaze/b2-sdk-python/releases/tag/v1.30.0) - 2024-01-12
+
+
+### Changed
+
+- Package the library using [pdm](https://pdm-project.org).
+
+### Infrastructure
+
+- Use locked dependencies for running CI actions.
+
+
 ## [1.29.0](https://github.com/Backblaze/b2-sdk-python/releases/tag/v1.29.0) - 2023-12-13
 
 
